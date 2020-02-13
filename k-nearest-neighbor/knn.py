@@ -17,46 +17,45 @@ class KNN:
         pass
 
     
-    def fit(self, train_X, train_y):
+    def fit(self, X_train, y_train):
         
-        # fit data in memory
-        self.train_X = train_X
-        self.train_y = train_y
+        # store data in memory
+        self.X_train = X_train
+        self.y_train = y_train
         pass
 
     
-    def predict(self, test_X):
+    def predict(self, X):
+                
+        # get label for each data point in test set X
+        self.y_hat = []
         
-        self.test_X = test_X
-        
-        # get label for each data point in test set
-        self.test_y = []
-        
-        for test_observation in self.test_X:
-            
-            # compute Euclidean distance between each test observation and training data
+        for test_observation in X:
+            # compute Euclidean distances between each test observation and training data
+            norm = 2
             distances = []
-            for train_observation in self.train_X:
-                distance = np.linalg.norm(train_observation - test_observation, 2)
+            for train_observation in self.X_train:
+                distance = np.linalg.norm(train_observation - test_observation, norm)
                 distances.append(distance)
                 pass
 
 
-            # get closest targets
+            # get nearest targets
             nearest_k_indices = np.argsort(distances)[0:self.k]
-            nearest_k_targets = self.train_y[nearest_k_indices]
+            nearest_k_targets = self.y_train[nearest_k_indices]
             
             # make prediction
             if self.algorithm == 'regression':
-                # prediction is mean (of nearest targets)
-                self.test_y.append(np.mean(nearest_k_targets))
+                # predict mean (of nearest targets)
+                self.y_hat.append(np.mean(nearest_k_targets))
+                pass
             elif self.algorithm == 'classification':
-                # prediction is mode (of nearest targets)
-                self.test_y.append(int(sp.mode(nearest_k_targets)[0]))
+                # prediction mode (of nearest targets)
+                self.y_hat.append(int(sp.mode(nearest_k_targets)[0]))
                 pass
             pass
         
-        return self.test_y
+        return self.y_hat
     
 
 def accuracy(y,y_hat):
