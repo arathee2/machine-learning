@@ -10,94 +10,77 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn import datasets
 from sklearn import cluster
+
 class KMeans:
     '''
     Perform k-means clustering.
     '''
     
-    def __init__(self, num_clusters):
+    def __init__(self, num_clusters, max_steps=100, convergence_threshold=0.05):
         '''
-        num_clusters : int, number of clusters
+        Input:
+            num_clusters         : int, number of clusters
+            max_steps            : int, maximum number of iterations to run the algorithm
+            convergence_threshold: if the means change less than this value
+                                   in an iteration, declare convergence
         '''
         self.num_clusters = num_clusters
+        self.MAX_STEPS = max_steps
+        self.CONVERGENCE_THRESHOLD = convergence_threshold
         pass
     
     # fit
     def fit(self, X):
         '''
         Run k-means clustering on dataset X.
-        X : numpy 2D array of floats, rows are observations and columns are features
+        Input:
+            X : numpy 2D array of floats, rows contain observations and columns contain features
+        
+        After running the fit() method, one can access the following variables
+            means             : a numpy 2D matrix of floats, each row is a cluster mean 
+                                and the number of features are equal to the number of features in the data
+            cluster_assignment: a list of the cluster assignments for each sample
+            dissimilarity     : sum of squared error of the Euclidean distance from each point to the cluster mean
         '''
         self.X           = X
+        num_observations = self.X.shape[0]
         num_features     = self.X.shape[1]
-
-        # initialize cluster centroids until all centroids have some data points in their vicinity
-        properly_initialized = False
-        while(properly_initialized == False):
-            self.centroids = np.zeros((self.num_clusters, num_features))
-            for i in range(self.num_clusters):
-                self.centroids[i, :] = self.initialize_centroid()
-                pass
-            
-            if(self.is_initialized_correctly()):
-                properly_initialized = True
-                pass
-            pass        
         
-        # update centroids
-        are_centroids_unstable = True
-        while(are_centroids_unstable):
-            self.points_to_centroids_map = self.assign_points_to_centroids()
-            centroids_updated            = self.update_centroids()
+        # initialize means: pick k means randomly from the data
+        self.means = self.X[np.random.randint(low=0, high=num_observations-1, size=self.num_clusters), :]     
+        
+        # update means
+        num_steps = 0
+        while(num_steps <= self.MAX_STEPS):
+            self.cluster_assignment = self.assign_points_to_means(self.X, self.means)
+            means_updated           = self.update_means()
             
-            # centroids are stable when NONE of them change their position
-            if((centroids_updated == self.centroids).all()):
-                are_centroids_unstable = False
+            # if algorithm has not converged, update cluster means
+            mean_movement = np.mean(means_updated, axis=1) - np.mean(self.means, axis=1)
+            if(np.all(mean_movement < self.CONVERGENCE_THRESHOLD)):
+                self.means = means_updated
+                break
+            else:
+                self.means = means_updated
                 pass
             
-            self.centroids = centroids_updated
+            num_steps += 1
             pass
         
+        self.dissimilarity = self.get_dissimilarity()
         pass
     
     
-    def is_initialized_correctly(self):
-        '''
-        Test whether all centroids have some points in their vicinity
-        '''
-        is_correctly_initialized = True
-        
-        points_to_centroids_map = self.assign_points_to_centroids()
-        num_observations_in_subset = []
-        for c in range(self.centroids.shape[0]):
-            num_observations_in_subset.append(self.X[np.where(points_to_centroids_map == c)].shape[0])
-            pass
-        
-        for i in num_observations_in_subset:
-            if(i == 0):
-                is_correctly_initialized = False
-                pass
-            pass
-        
-        return is_correctly_initialized
-    
-    
-    def get_clusters(self):
-        '''
-        Return a list of centroids that each point belong to.
-        '''
-        return self.points_to_centroids_map
-    
-    # transform
+    # assign clusters to test data
     def transform(self, X):
         ''' 
-        Assign cluster to observations in X .
+        Assign cluster to observations in X.
         '''
-        return self.assign_points_to_centroids(X, self.centroids)
+        return self.assign_points_to_means(X, self.means)
             
         
     # sse
-    def get_sse(self):
+    def get_dissimilarity(self):
         '''
         Return sum of squared errors.
         '''
@@ -105,12 +88,12 @@ class KMeans:
         
         # compute sse for each cluster
         for c in range(self.num_clusters):
-            c_points = np.where(self.points_to_centroids_map == c)
+            c_points = np.where(self.cluster_assignment == c)
             points   = self.X[c_points]
             
             # sum all the distances between a centroid and the points that belong to the centroid
             for point in points:
-                sse += self.get_distance(self.centroids[c], point)
+                sse += self.get_distance(self.means[c], point)
                 pass
             pass
         
@@ -123,84 +106,65 @@ class KMeans:
         Plot X and color them by their clusters.
         '''
         
-        # list containing centroids that the point in X belong to
-        mapping         = self.points_to_centroids_map.reshape((-1, 1))
+        # list containing means that the point in X belong to
+        mapping         = self.cluster_assignment.reshape((-1, 1))
         
         # plot points in the vicinity of each centroid
         for centroid in range(self.num_clusters):
-            plt.scatter(self.X[np.where(mapping == centroid), 0], self.X[np.where(mapping == centroid), 1], label='Cluster '+str(centroid), color=np.random.rand(3,))
+            plt.scatter(self.X[np.where(mapping == centroid), 0], self.X[np.where(mapping == centroid), 1], label='cluster '+str(centroid), color=np.random.rand(3,))
             pass
         
-        # plot centroids
-        plt.scatter(self.centroids[0], self.centroids[1], color=np.random.rand(3,), label='Cluster centroids')
+        # plot means
+        plt.scatter(self.means[:, 0], self.means[:, 1], color=np.random.rand(3,), label='means')
         plt.legend()
         plt.xlabel('x1')
         plt.ylabel('x2')
-        plt.title('Clusters')
+        plt.title('clusters')
 
 
 
     # helper functions
-    def initialize_centroid(self):
-        '''
-        Initialize a centroid of dimension [1, num_features]. Each element of the centroid is randomly drawn from the minimum and maximum values of a feature.
-        '''
-        num_features    = self.X.shape[1]
-
-        # compute min and max value in each feature
-        feature_min_max = []
-        for i in range(num_features):
-            feature_min_max.append((np.min(self.X[:, i]), np.max(self.X[:, i])))
-            pass
-
-        # generate centroid: a random vector of size num_features where each number is drawn uniformly within the min and max of each feature
-        centroid = []
-        for i in range(len(feature_min_max)):
-            centroid.append(np.random.uniform(feature_min_max[i][0], feature_min_max[i][1]))
-            pass
-
-        return centroid
-
-    def assign_points_to_centroids(self):
+    def assign_points_to_means(self, X, means):
         '''
         Return a list of length equal to the number of points in the data. Each element of list is the centroid that is closest to that point.
         '''
-        points_to_centroids_map = [0 for i in range(self.X.shape[0])]
+        cluster_assignment = [0 for i in range(X.shape[0])]
         
         
-        for i, point in enumerate(self.X):
+        for i, point in enumerate(X):
             point_to_centroid_distances = []
-            for centroid in self.centroids:
+            for centroid in means:
                 
                 # compute distance between a point and a centroid
                 point_to_centroid_distances.append(self.get_distance(centroid, point))
                 pass
             
             # append the centroid number that is closest to the point
-            points_to_centroids_map[i] = np.argmin(point_to_centroid_distances)
+            cluster_assignment[i] = np.argmin(point_to_centroid_distances)
             pass
 
-        return np.array(points_to_centroids_map)
+        return np.array(cluster_assignment)
         
 
-    def update_centroids(self):
+    def update_means(self):
         '''
         Assign each centroid the mean of all the points in their vicinity.
         '''
-        centroids_updated = np.zeros((self.centroids.shape[0], self.centroids.shape[1]))
-        for c in range(self.centroids.shape[0]):
-            c_points             = np.where(self.points_to_centroids_map == c)
+        means_updated = np.zeros((self.means.shape[0], self.means.shape[1]))
+        for c in range(self.means.shape[0]):
+            c_points             = np.where(self.cluster_assignment == c)
             
             if(self.X[c_points].shape[0] == 0):
-                # respawn centroids if no points present in their vicinity
-                centroids_updated[c] = self.initialize_centroid()
+                # respawn means if no points present in their vicinity
+                means_updated[c] = self.initialize_centroid()
+                print('unexpected error')
                 pass
             else:
-                # update centroids if they have some points in their vicinity
-                centroids_updated[c] = np.apply_along_axis(np.mean, 0, self.X[c_points])
+                # update means if they have some points in their vicinity
+                means_updated[c] = np.apply_along_axis(np.mean, 0, self.X[c_points])
             pass
 
-        return centroids_updated
+        return means_updated
 
     def get_distance(self, a, b):
         '''
@@ -213,46 +177,46 @@ class KMeans:
     pass
 
 
-# generate data
-num_observations = 200
-num_features     = 2
-num_blobs        = 4
-X, y = datasets.make_blobs(n_samples=num_observations, n_features=num_features, centers=num_blobs)
+'''
+Generate data
+'''
+num_samples  = 5000
+num_features = 4
+num_blobs    = 2
+X, y = datasets.make_blobs(n_samples=num_samples, n_features=num_features, centers=num_blobs, random_state=0)
 plt.scatter(X[:, 0], X[:, 1])
+
 
 '''
 Run k-means using self-implemented class
 '''
 # choose k using elbow method
-k_range = range(2, 10)
+k_range = range(1, 11)
 sse = []
 for k in k_range:
     model = KMeans(num_clusters=k)
     model.fit(X)
-    sse.append(model.get_sse())
+    sse.append(model.dissimilarity)
     pass
 
 plt.plot(k_range, sse)
-plt.xlabel("K",)
+plt.xlabel("Number of clusters",)
 plt.ylabel("Sum of squared errors")
-plt.title("Elbow Curve")
+plt.title("K-means Elbow Curve")
 
-# fit k-means using k found through elbow method
-k = 4
-model = KMeans(num_clusters=k)
+# run k-means with two clusters
+k = 2
+model = KMeans(num_clusters=k, max_steps=200, convergence_threshold=0.01)
 model.fit(X)
 
 # sum of squared error
-model.get_sse()
-
-# visualize clusters
-model.visualize_clusters()
+model.dissimilarity
 
 
 '''
-Run k-means using scikit-learn's implementation
+Run k-means using sklearn implementation
 '''
-# scikit-learn's implementation
+k = 2
 sklearn_kmeans = cluster.KMeans(n_clusters=k, random_state=0)
 sklearn_kmeans.fit(X)
 
