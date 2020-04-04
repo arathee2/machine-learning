@@ -29,6 +29,7 @@ class KMeans:
         self.CONVERGENCE_THRESHOLD = convergence_threshold
         pass
     
+    
     # fit
     def fit(self, X):
         '''
@@ -36,7 +37,7 @@ class KMeans:
         Input:
             X : numpy 2D array of floats, rows contain observations and columns contain features
         
-        After running the fit() method, one can access the following variables
+        After running the fit() method, one can access the following variables:
             means             : a numpy 2D matrix of floats, each row is a cluster mean 
                                 and the number of features are equal to the number of features in the data
             cluster_assignment: a list of the cluster assignments for each sample
@@ -69,15 +70,7 @@ class KMeans:
         
         self.dissimilarity = self.get_dissimilarity()
         pass
-    
-    
-    # assign clusters to test data
-    def transform(self, X):
-        ''' 
-        Assign cluster to observations in X.
-        '''
-        return self.assign_points_to_means(X, self.means)
-            
+      
         
     # sse
     def get_dissimilarity(self):
@@ -98,10 +91,9 @@ class KMeans:
             pass
         
         return sse
-            
-        
+    
     # visualize clusters
-    def visualize_clusters(self):
+    def visualize_clusters(self, title='k-means clustering'):
         '''
         Plot X and color them by their clusters.
         '''
@@ -119,10 +111,10 @@ class KMeans:
         plt.legend()
         plt.xlabel('x1')
         plt.ylabel('x2')
-        plt.title('clusters')
-
-
-
+        plt.title(title)
+        pass
+    
+    
     # helper functions
     def assign_points_to_means(self, X, means):
         '''
@@ -156,8 +148,7 @@ class KMeans:
             
             if(self.X[c_points].shape[0] == 0):
                 # respawn means if no points present in their vicinity
-                means_updated[c] = self.initialize_centroid()
-                print('unexpected error')
+                return self.X[np.random.randint(low=0, high=num_observations-1, size=self.num_clusters), :]
                 pass
             else:
                 # update means if they have some points in their vicinity
@@ -176,14 +167,13 @@ class KMeans:
     
     pass
 
-
 '''
 Generate data
 '''
 num_samples  = 5000
 num_features = 4
 num_blobs    = 2
-X, y = datasets.make_blobs(n_samples=num_samples, n_features=num_features, centers=num_blobs, random_state=0)
+X, y = datasets.make_blobs(n_samples=num_samples, n_features=num_features, centers=num_blobs, random_state=1)
 plt.scatter(X[:, 0], X[:, 1])
 
 
@@ -212,6 +202,8 @@ model.fit(X)
 # sum of squared error
 model.dissimilarity
 
+# visualize clusters
+model.visualize_clusters()
 
 '''
 Run k-means using sklearn implementation
