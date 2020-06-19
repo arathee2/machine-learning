@@ -3,7 +3,7 @@ The following paper does an exceptional job of explaining PCA:
 https://www.cc.gatech.edu/~lsong/teaching/CX4240spring16/pca_schlens.pdf
 
 My notes available at:
-
+https://github.com/arathee2/machine-learning/blob/master/pca/pca-notes.pdf
 '''
 
 
