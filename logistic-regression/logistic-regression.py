@@ -56,8 +56,7 @@ class LogisticRegression:
         # optimize weights
         for i in range(self.epochs):
             self.SGD(self.X, self.y, self.batch_size)
-            
-            self.training_cost.append(self.get_cost(self.X, self.y, self.weights))
+            self.training_cost = self.get_cost(self.X, self.y, self.weights)
             pass
 
         # store intercept and weights
